@@ -7,16 +7,17 @@ Let M = (Q, Σ, Ɛ, q, δ, F) be an NFA, where Ɛ is a placeholder for the empty
 To calculate if any word is accepted by the NFA, we run the algorithm with the word
 as first input and the final states as declared as second input.
 
-The Algorithm checks works in following steps
-    1. Initialize a 'generation' G with the initial state as only member.
-       It can be represented as set or boolean Array.
-    2. for each letter i in the input word
-        2.1 Update G to be only the states that are reachable with the input 'i',
-            by checking every outgoing connection of G that have 'i' as input and following states that have 'epsilon' as input.
-            Do not consider following epsilon connection that lead to already checked states, so called 'forbidden states'.
-    3. Finally update G, so every state that is reachable with 'epsilon' inputs is contained in the list.
-       Do not consider following epsilon connection that lead to already checked states, so called 'forbidden states'.
-    4. Check if G contains one of the final states listed in F. If yes the word has been accepted, else it's been rejected.
+The Algorithm checks works in following steps:
+
+1. Initialize a 'generation' G with the initial state as only member.
+   It can be represented as set or boolean Array.
+2. for each letter i in the input word
+    1. Update G to be only the states that are reachable with the input 'i',
+        by checking every outgoing connection of G that have 'i' as input and following states that have 'epsilon' as input.
+        Do not consider following epsilon connection that lead to already checked states, so called 'forbidden states'.
+3. Finally update G, so every state that is reachable with 'epsilon' inputs is contained in the list.
+   Do not consider following epsilon connection that lead to already checked states, so called 'forbidden states'.
+4. Check if G contains one of the final states listed in F. If yes the word has been accepted, else it's been rejected.
 
 ## Runtime
 We can estimate the runtime to be linear in the word input, due to it only influencing a for-loop.
