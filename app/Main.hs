@@ -1,9 +1,9 @@
 module Main where
 
+import qualified Data.HashMap.Strict as M
+import qualified Data.HashSet as H
 import qualified Data.IntSet as I
 import Data.List
-import qualified Data.Map as M
-import qualified Data.Set as S
 import NFA
 
 -- | Split list at first occurance of an item and
@@ -72,7 +72,7 @@ regexToNFA rg =
       parse ('[':'^':xs) n mp = do
         (ls1, rs) <- splitFirst ']' xs
         ls2 <- expand ls1
-        let ls3 = S.toList $ S.fromList alph S.\\ S.fromList ls2
+        let ls3 = H.toList $ H.difference (H.fromList alph) (H.fromList ls2)
         let (mp', n') = multicon ls3 n mp
         pass n n' rs mp'
       parse ('[':xs) n mp = do
@@ -88,7 +88,7 @@ regexToNFA rg =
         (mp', n') <- parse ls n mp
         pass n n' rs mp'
       parse (x:xs) n mp
-        | S.notMember x (S.fromList alph) = Nothing
+        | not $ H.member x (H.fromList alph) = Nothing
         | otherwise = do
           let (mp', n') = multicon [x] n mp
           pass n n' xs mp'

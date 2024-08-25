@@ -1,18 +1,19 @@
 module NFA where
 
+import qualified Data.HashMap.Strict as M
+import Data.Hashable
 import qualified Data.IntSet as S
-import qualified Data.Map as M
 
 type NFA a
   = ( a -- Epsilon
     , Int -- Initial State
-    , M.Map (Int, a) S.IntSet -- Transitions
+    , M.HashMap (Int, a) S.IntSet -- Transitions
     , S.IntSet -- Final States
       )
 
 -- | Calculate a word in the NFA the naive way (exponential runtime).
 --   Not used, just written down for comparison.
-naiveCalcNFA :: (Ord a) => NFA a -> [a] -> Bool
+naiveCalcNFA :: (Hashable a) => NFA a -> [a] -> Bool
 naiveCalcNFA nfa word = go word i S.empty
   where
     (eps, i, trs, fin) = nfa
@@ -28,9 +29,9 @@ naiveCalcNFA nfa word = go word i S.empty
        in or $ gud ++ bad
 
 -- | Calculate a word using Said's NFA-Algorithm.
--- Runtime is linear regarding to the word length,
--- and polynomial regarding to the amount of states.
-calcNFA :: (Ord a) => NFA a -> [a] -> Bool
+--   Runtime is linear regarding the word length,
+--   and polynomial regarding the amount of states.
+calcNFA :: (Hashable a) => NFA a -> [a] -> Bool
 calcNFA nfa word = go word (S.singleton i)
   where
     (eps, i, trs, fin) = nfa

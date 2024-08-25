@@ -14,7 +14,9 @@ library
     ghc-options:      -Wall
     build-depends:
         base ^>=4.19.1.0,
-        containers ^>=0.6.5.1
+        containers ^>=0.6.5.1,
+        unordered-containers ^>=0.2.20,
+        hashable ^>= 1.4.3.0
 
 executable NFA-Solver
     main-is:          Main.hs
@@ -24,6 +26,8 @@ executable NFA-Solver
     build-depends:
         base ^>=4.19.1.0,
         containers ^>=0.6.5.1,
+        unordered-containers ^>=0.2.20,
+        hashable ^>= 1.4.3.0,
         NFA-Solver
 
 test-suite NFA-Solver-test
