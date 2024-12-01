@@ -22,7 +22,7 @@ The Algorithm checks works in following steps:
 ## Runtime
 We can estimate the runtime to be linear in the word input, due to it only influencing a for-loop.
 The runtime regarding the amount of states would be linear as well, due to us being able
-to inspect states in O(1) of time to verify already visited staes and only checking outgoing connection of each state maximally once
+to inspect states in O(1) of time to verify already visited states and only checking outgoing connection of each state maximally once
 in each for-loop step (and in the 3rd step). The maximal amount of connections we need to check for each state is the amount of states
 itself multiplied by two, because every state can be connected by either a connection with the letter as input or epsilon.
 In the very last step we additonally check every final state, if it's contained in the generation. This can be realised by m Array-lookups,
@@ -35,8 +35,9 @@ due to a software paradigm, space efficiency or being simpler. The runtime would
 So we have a guaranteed, this Algorithm's runtime is linear in regards to the input word and polynomial in regards to the amount of states.
 
 ## Conclusion
-The naive approach to solve wether a word is being accepted or rejected by an NFA is being translating the NFA
-to a Deterministic Finite Automaton (DFA) and walking each step or using similar approaches that translate in
-traversing every state with given input or epsilon connection from the initial state,
-which can grow an exponentially large (search-)tree in regards to the amount of states.
-By introducing the idea of 'generations' and limitating the search to these, we can improve the runtime dramastically.
+The naive approach to solve whether a word is being accepted or rejected by an NFA is translating the NFA
+to a Deterministic Finite Automaton (DFA) or to traverse the transitions of specified by the input with
+guess-work and backtracking. The first approach exponential amount of storage and time when building the DFA and
+the second approach requires exponential amount of time for every word that is being checked.
+By introducing the idea of 'generations' and limitating the search to these, we can improve the runtime dramastically,
+while still keeping a low memory footprint.
