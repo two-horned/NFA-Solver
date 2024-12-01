@@ -1,8 +1,8 @@
 cabal-version:   3.4
 name:            NFA-Solver
 version:         0.1.0.0
-maintainer:      said@kadrioski.de
 author:          Said Kadrioski
+maintainer:      said@kadrioski.de
 category:        System
 build-type:      Simple
 extra-doc-files: CHANGELOG.md
@@ -28,6 +28,7 @@ executable NFA-Solver
         containers ^>=0.6.5.1,
         unordered-containers ^>=0.2.20,
         hashable ^>= 1.4.3.0,
+        charset ^>= 0.3.10,
         NFA-Solver
 
 test-suite NFA-Solver-test
