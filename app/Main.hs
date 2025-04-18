@@ -1,11 +1,12 @@
 module Main where
 
-import Data.Char
+import System.IO.Error (isEOFError)
+import Control.Exception (catch, throwIO)
+import Data.Char (isAsciiLower, isAsciiUpper, isDigit)
 import qualified Data.CharSet as C
 import qualified Data.HashMap.Strict as H
 import qualified Data.IntSet as I
-import Data.List
-import NFA
+import NFA (calcNFA, NFA)
 
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
@@ -76,23 +77,38 @@ regexToNFA rg =
         (mp, n, Nothing) -> Just (eps, 0, mp, I.singleton n)
         _ -> Nothing
 
-main :: IO ()
-main = do
-  putStr "Input Regex (Input '!' word to change later):\n"
+
+getNFA :: IO (NFA Char)
+getNFA = do
+  putStr "Provide Regex (input '!' to change later).\n\n"
   regex <- getLine
   case regexToNFA regex of
     Nothing -> do
-      putStr "Not a valid regex\n\n"
-      main
-    Just nfa -> niam nfa
-  where
-    niam nfa = do
-      putStr "\nInput:\n"
-      word <- getLine
-      if word == "!"
-        then main
-        else
-          if calcNFA nfa word
-            then putStr "Accepted.\n\n"
-            else putStr "Rejected.\n\n"
-      niam nfa
+      putStr "Invalid Regex.\n\n"
+      getNFA
+    Just nfa -> do
+      putStr "Valid Regex.\n\n"
+      return nfa
+
+checkInputs :: NFA Char -> IO ()
+checkInputs nfa = do
+  putStr "Feed input words line by line.\n\n"
+  word <- getLine
+  if word == "!"
+    then agenda
+    else do
+      if calcNFA nfa word
+        then putStr "Accepted.\n\n"
+        else putStr "Rejected.\n\n"
+      checkInputs nfa
+
+sayBye :: IO ()
+sayBye = putStrLn "Bye."
+
+agenda :: IO ()
+agenda = do
+  nfa <- getNFA
+  checkInputs nfa
+
+main :: IO ()
+main = agenda `catch` (\e -> if isEOFError e then sayBye else throwIO e)
