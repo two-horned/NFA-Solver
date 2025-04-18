@@ -1,6 +1,6 @@
 cabal-version:   3.4
 name:            NFA-Solver
-version:         0.1.0.0
+version:         0.1.0.1
 author:          Said Kadrioski
 maintainer:      said@kadrioski.de
 category:        System
@@ -13,10 +13,10 @@ library
     default-language: Haskell2010
     ghc-options:      -Wall
     build-depends:
-        base ^>=4.19.1.0,
-        containers ^>=0.6.5.1,
+        base ^>=4.21.0.0,
+        containers ^>=0.7,
         unordered-containers ^>=0.2.20,
-        hashable ^>= 1.4.3.0
+        hashable ^>= 1.5.0.0
 
 executable NFA-Solver
     main-is:          Main.hs
@@ -24,11 +24,11 @@ executable NFA-Solver
     default-language: Haskell2010
     ghc-options:      -Wall
     build-depends:
-        base ^>=4.19.1.0,
-        containers ^>=0.6.5.1,
+        base ^>=4.21.0.0,
+        containers ^>=0.7,
         unordered-containers ^>=0.2.20,
-        hashable ^>= 1.4.3.0,
-        charset ^>= 0.3.10,
+        hashable ^>= 1.5.0.0,
+        charset ^>= 0.3.12,
         NFA-Solver
 
 test-suite NFA-Solver-test
@@ -38,5 +38,5 @@ test-suite NFA-Solver-test
     default-language: Haskell2010
     ghc-options:      -Wall
     build-depends:
-        base ^>=4.19.1.0,
+        base ^>=4.21.0.0,
         NFA-Solver

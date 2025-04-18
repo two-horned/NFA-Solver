@@ -82,17 +82,17 @@ main = do
   regex <- getLine
   case regexToNFA regex of
     Nothing -> do
-      putStr "Not a valid regex\n"
+      putStr "Not a valid regex\n\n"
       main
     Just nfa -> niam nfa
   where
     niam nfa = do
-      putStr "Input word:\n"
+      putStr "\nInput:\n"
       word <- getLine
       if word == "!"
         then main
         else
           if calcNFA nfa word
-            then putStr "Word accepted\n"
-            else putStr "Word rejected\n"
+            then putStr "Accepted.\n\n"
+            else putStr "Rejected.\n\n"
       niam nfa
