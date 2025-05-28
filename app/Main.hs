@@ -3,6 +3,7 @@
 module Main where
 
 import Control.Exception (catch, throwIO)
+import Control.Monad (liftM2)
 import Data.Char (isAsciiLower, isAsciiUpper, isDigit)
 import qualified Data.CharSet as C
 import qualified Data.HashMap.Strict as H
@@ -14,7 +15,7 @@ import System.Posix.Terminal (queryTerminal)
 
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
-  let gdert = H.insertWith I.union
+  let gdert x y z = H.insertWith I.union (x, y) (I.singleton z)
       -- Limit the alphabet to ASCII Letters and Digits.
       alph = digs ++ ['A' .. 'Z'] ++ ['a' .. 'z']
       digs = ['0' .. '9']
@@ -31,57 +32,59 @@ regexToNFA rg =
         | isDigit a = isDigit
         | otherwise = const False
 
-      multicon xs n mp =
-        let ii bp x = gdert (n, x) (I.singleton (n + 1)) bp
-         in foldl' ii mp xs
+      multicon xs n =
+        let ii bp x = gdert n x (n + 1) bp
+         in flip (foldl' ii) xs
 
-      expand ip = case ip of
+      report s xs n mp = (mp, n, Just (s, xs))
+
+      expand = \case
         ']' : xs -> Just ([], xs)
-        a : '-' : b : xs | isPair a b -> do
-          (r, u) <- expand xs
-          return ([a .. b] ++ r, u)
-        c : xs | isAsciiLower c || isAsciiUpper c || isDigit c -> do
-          (r, u) <- expand xs
-          return (c : r, u)
+        a : '-' : b : xs
+          | isPair a b -> expand xs >>= \(r, u) -> return ([a .. b] <> r, u)
+        c : xs
+          | isAsciiLower c || isAsciiUpper c || isDigit c ->
+              expand xs >>= \(r, u) -> return (c : r, u)
         _ -> Nothing
 
-      parseE ip n mp = case ip of
-        '^' : ']' : xs -> (mp, n, Just ('^', xs))
-        '^' : xs ->
+      parseE ip = case ip of
+        '^' : ']' : xs -> report '^' xs
+        ']' : xs -> report ']' xs
+        '^' : xs -> \n mp ->
           case expand xs of
             Just (e, u) ->
               let e' = C.toList $ alphS C.\\ C.fromList e
-               in parseN u n (n + 1) (multicon e' n mp)
-            _ -> (mp, n, Just ('^', xs))
-        ']' : xs -> (mp, n, Just (']', xs))
-        xs -> case expand ip of
-          Just (e, u) -> parseN u n (n + 1) (multicon e n mp)
-          _ -> (mp, n, Just ('[', xs))
+               in (parseN u n (n + 1) . multicon e' n) mp
+            _ -> report '^' xs n mp
+        xs -> case expand xs of
+          Just (e, u) -> \n -> parseN u n (n + 1) . multicon e n
+          _ -> report '[' xs
 
-      parseN ip o n mp = case ip of
-        '?' : xs -> parseN xs o n $ gdert (o, eps) (I.singleton n) mp
-        '+' : xs -> parseN xs o n $ gdert (n, eps) (I.singleton o) mp
-        '*' : xs -> parseN ('+' : '?' : xs) o n mp
+      edert x y = gdert x eps y
+
+      parseN ip o n = case ip of
+        '?' : xs -> parseN xs o n . edert o n
+        '+' : xs -> parseN xs o n . edert n o
+        '*' : xs -> parseN xs o n . edert n o . edert o n
         '|' : xs ->
-          let mp' = gdert (o, eps) (I.singleton (n + 1)) mp
-              (mp'', n', t) = parseS xs (n + 1) mp'
-           in (gdert (n, eps) (I.singleton n') mp'', n', t)
-        _ -> parseS ip n mp
+          (\(mp'', n', t) -> ((edert n n' mp'', n', t)))
+            . parseS xs (n + 1)
+            . gdert o eps (n + 1)
+        _ -> parseS ip n
 
-      parseS ip n mp = case ip of
-        ('(' : xs) ->
+      parseS ip n = case ip of
+        '[' : xs -> parseE xs n
+        '.' : xs -> parseN xs n (n + 1) . multicon alph n
+        '\\' : 'd' : xs -> parseN xs n (n + 1) . multicon digs n
+        ('(' : xs) -> \mp ->
           let (mp', n', t) = parseS xs n mp
            in case t of
                 Just (')', ys) -> parseN ys n n' mp'
-                _ -> (mp', n', Just ('(', xs))
-        '[' : xs -> parseE xs n mp
-        '.' : xs -> parseN xs n (n + 1) (multicon alph n mp)
-        '\\' : 'd' : xs -> parseN xs n (n + 1) (multicon digs n mp)
+                _ -> report '(' xs n' mp'
         c : xs
-          | isVal c ->
-              parseN xs n (n + 1) (multicon [c] n mp)
-        c : xs -> (mp, n, Just (c, xs))
-        _ -> (mp, n, Nothing)
+          | isVal c -> parseN xs n (n + 1) . multicon [c] n
+        c : xs -> report c xs n
+        _ -> \mp -> (,,) mp n Nothing
    in case parseS rg 0 H.empty of
         (mp, n, Nothing) -> Just (eps, 0, mp, I.singleton n)
         _ -> Nothing
@@ -89,8 +92,8 @@ regexToNFA rg =
 type Logger = Bool -> String -> IO ()
 
 printWelcome :: Logger -> IO ()
-printWelcome log =
-  log
+printWelcome lgr =
+  lgr
     False
     "Welcome! This is a simple demonstration that demonstrates\n\
     \ my algorithm, which checks input sequences for an NFA, works\n\
@@ -106,38 +109,37 @@ printWelcome log =
     \ a problem to NFA input validation and define a parser for the appropriate NFA."
 
 getNFA :: Logger -> IO (NFA Char)
-getNFA log = go
+getNFA lgr = go
   where
     go = do
-      log False "Provide Regex (input '!' to change later)."
+      lgr False "Provide Regex (input '!' to change later)."
       getLine >>= maybe handleB handleA . regexToNFA
-    handleA nfa = log True "Valid Regex." >> return nfa
-    handleB = log True "Invalid Regex." >> go
+    handleA nfa = lgr True "Valid Regex." >> return nfa
+    handleB = lgr True "Invalid Regex." >> go
 
 checkInputs :: Logger -> NFA Char -> IO ()
-checkInputs log nfa = go
+checkInputs lgr nfa = go
   where
-    logA = log True "Accepted."
-    logB = log True "Rejected."
+    lgrA = lgr True "Accepted."
+    lgrB = lgr True "Rejected."
     ca = calcNFA nfa
-    ag = agendaSlim log
+    ag = agendaSlim lgr
     go = do
-      log False "Feed input words line by line.\n\n"
-      getLine >>= (\case "!" -> ag; w | ca w -> logA; _ -> logB) >> go
+      lgr False "Feed input words line by line.\n\n"
+      getLine >>= (\case "!" -> ag; w | ca w -> lgrA; _ -> lgrB) >> go
 
 sayBye :: IO ()
 sayBye = putStrLn "Bye."
 
 agendaSlim :: Logger -> IO ()
-agendaSlim log = getNFA log >>= checkInputs log
+agendaSlim = liftM2 (>>=) getNFA checkInputs
 
 agenda :: IO ()
 agenda = do
   isTTY <- queryTerminal stdInput
-  let log = \case
-        True -> putStrLn
-        False -> if isTTY then putStrLn else const $ return ()
-  printWelcome log >> agendaSlim log
+  let prF = if isTTY then putStrLn else const $ return ()
+  let lgr = \case True -> putStrLn; False -> prF
+  printWelcome lgr >> agendaSlim lgr
 
 main :: IO ()
 main = agenda `catch` (\e -> if isEOFError e then sayBye else throwIO e)
