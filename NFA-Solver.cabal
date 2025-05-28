@@ -6,14 +6,13 @@ maintainer:      said@kadrioski.de
 category:        System
 build-type:      Simple
 extra-doc-files: CHANGELOG.md
-
 library
     exposed-modules:  NFA
     hs-source-dirs:   src
     default-language: Haskell2010
-    ghc-options:      -Wall
+    ghc-options:      -Wall -O2
     build-depends:
-        base ^>=4.21.0.0,
+        base ^>= 4.21.0.0,
         containers ^>=0.7,
         unordered-containers ^>=0.2.20,
         hashable ^>= 1.5.0.0
@@ -22,15 +21,16 @@ executable NFA-Solver
     main-is:          Main.hs
     hs-source-dirs:   app
     default-language: Haskell2010
-    ghc-options:      -Wall
+    ghc-options:      -Wall -O2
     build-depends:
-        base ^>=4.21.0.0,
-        containers ^>=0.7,
+        base ^>=  4.21.0.0,
+        containers ^>= 0.7,
         unordered-containers ^>=0.2.20,
         hashable ^>= 1.5.0.0,
         charset ^>= 0.3.12,
         posix-api ^>= 0.7.2,
         unix ^>= 2.8.6.0,
+        time ^>= 1.14,
         NFA-Solver
 
 test-suite NFA-Solver-test
@@ -38,7 +38,7 @@ test-suite NFA-Solver-test
     main-is:          Main.hs
     hs-source-dirs:   test
     default-language: Haskell2010
-    ghc-options:      -Wall
+    ghc-options:      -Wall -O2
     build-depends:
-        base ^>=4.21.0.0,
+        base ^>= 4.21.0.0,
         NFA-Solver

@@ -12,6 +12,7 @@ import NFA (NFA, calcNFA)
 import System.IO.Error (isEOFError)
 import System.Posix.IO (stdInput)
 import System.Posix.Terminal (queryTerminal)
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
@@ -123,7 +124,7 @@ checkInputs lgr nfa = go
     lgrA = lgr True "Accepted."
     lgrB = lgr True "Rejected."
     ca = calcNFA nfa
-    ag = agendaSlim lgr
+    ag = agenda lgr
     go = do
       lgr False "Feed input words line by line.\n\n"
       getLine >>= (\case "!" -> ag; w | ca w -> lgrA; _ -> lgrB) >> go
@@ -131,15 +132,15 @@ checkInputs lgr nfa = go
 sayBye :: IO ()
 sayBye = putStrLn "Bye."
 
-agendaSlim :: Logger -> IO ()
-agendaSlim = liftM2 (>>=) getNFA checkInputs
+agenda :: Logger -> IO ()
+agenda = liftM2 (>>=) getNFA checkInputs
 
-agenda :: IO ()
-agenda = do
+main :: IO ()
+main = do
   isTTY <- queryTerminal stdInput
   let prF = if isTTY then putStrLn else const $ return ()
   let lgr = \case True -> putStrLn; False -> prF
-  printWelcome lgr >> agendaSlim lgr
-
-main :: IO ()
-main = agenda `catch` (\e -> if isEOFError e then sayBye else throwIO e)
+  printWelcome lgr
+  start <- getCurrentTime
+  agenda lgr `catch` (\e -> if isEOFError e then sayBye else throwIO e)
+  getCurrentTime >>= putStrLn . show . flip diffUTCTime start
