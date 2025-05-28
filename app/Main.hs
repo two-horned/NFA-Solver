@@ -11,17 +11,21 @@ import NFA (calcNFA, NFA)
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
   let gdert = H.insertWith I.union
-      alph = ['0' .. '9'] ++ ['A' .. 'Z'] ++ ['a' .. 'z']
+      -- Limit the alphabet to ASCII Letters and Digits.
+      alph = digs ++ ['A' .. 'Z'] ++ ['a' .. 'z']
+      digs = [ '0' .. '9' ]
       alphS = C.fromList alph
+
+      -- The epsilon symbol is reserved to mark empty transitions.
       eps = 'ε'
 
       isVal c = isAsciiLower c || isAsciiUpper c || isDigit c
 
-      isPair a b
-        | isAsciiLower a = isAsciiLower b
-        | isAsciiUpper a = isAsciiUpper b
-        | isDigit a = isDigit b
-        | otherwise = False
+      isPair a
+        | isAsciiLower a = isAsciiLower
+        | isAsciiUpper a = isAsciiUpper
+        | isDigit a = isDigit
+        | otherwise = const False
 
       multicon xs n mp =
         let ii bp x = gdert (n, x) (I.singleton (n + 1)) bp
@@ -68,6 +72,7 @@ regexToNFA rg =
                 _ -> (mp', n', Just ('(', xs))
         '[' : xs -> parseE xs n mp
         '.' : xs -> parseN xs n (n + 1) (multicon alph n mp)
+        '\\' : 'd' : xs -> parseN xs n (n + 1) (multicon digs n mp)
         c : xs
           | isVal c ->
               parseN xs n (n + 1) (multicon [c] n mp)
@@ -80,6 +85,23 @@ regexToNFA rg =
 
 getNFA :: IO (NFA Char)
 getNFA = do
+  putStrLn "Welcome! This is a simple demonstration that demonstrates"
+  putStrLn "my algorithm, which checks input sequences for an NFA, works"
+  putStrLn "well for validating strings with Regular Expressions."
+  putStrLn ""
+  putStrLn "First, we read a form of Regular Expression, convert them"
+  putStrLn "to an NFA and then check for various inputs. Please note,"
+  putStrLn "the syntax is limited to the ASCII alphabet & digits, parenthesis,"
+  putStrLn "and symbols '.', '?', '+', '*', '|', '[', ']', '^', '\\d'"
+  putStrLn "which represent the commonly known operations in Regular Expressions."
+  putStrLn "Please note, we do not have a fixed precedence rule for concatenation and alternation,"
+  putStrLn "so please use paranthesis to group subexpressions together."
+  putStrLn ""
+  putStrLn "My algorithm is not limited to Regular Expressions. One only needs to find a way to translate"
+  putStrLn "a problem to NFA input validation and define a parser for the appropriate NFA."
+  putStrLn ""
+  putStrLn ""
+  putStrLn ""
   putStr "Provide Regex (input '!' to change later).\n\n"
   regex <- getLine
   case regexToNFA regex of
