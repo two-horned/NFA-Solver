@@ -4,12 +4,12 @@ import qualified Data.HashMap.Strict as M
 import Data.Hashable
 import qualified Data.IntSet as S
 
-type NFA a
-  = ( a -- Epsilon
-    , Int -- Initial State
-    , M.HashMap (Int, a) S.IntSet -- Transitions
-    , S.IntSet -- Final States
-      )
+type NFA a =
+  ( a, -- Epsilon
+    Int, -- Initial State
+    M.HashMap (Int, a) S.IntSet, -- Transitions
+    S.IntSet -- Final States
+  )
 
 -- | Calculate a word in the NFA the naive way (exponential runtime).
 --   Not used, just written down for comparison.
@@ -22,7 +22,7 @@ naiveCalcNFA nfa word = go word i S.empty
       let epi = look (s, eps) S.\\ fs
           bad = [go [] n (S.insert n fs) | n <- S.toList epi]
        in S.member s fin || or bad
-    go ws@(w:ws') s fs =
+    go ws@(w : ws') s fs =
       let gud = [go ws' n S.empty | n <- S.toList (look (s, w))]
           epi = look (s, eps) S.\\ fs
           bad = [go ws n (S.insert n fs) | n <- S.toList epi]
@@ -45,4 +45,4 @@ calcNFA nfa word = go word (S.singleton i)
        in S.union leg pro
     go [] sts =
       not $ S.disjoint fin (S.union sts (concatMapS (nextgen S.empty eps) sts))
-    go (w:ws) sts = go ws (concatMapS (nextgen S.empty w) sts)
+    go (w : ws) sts = go ws (concatMapS (nextgen S.empty w) sts)
