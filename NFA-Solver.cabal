@@ -29,6 +29,8 @@ executable NFA-Solver
         unordered-containers ^>=0.2.20,
         hashable ^>= 1.5.0.0,
         charset ^>= 0.3.12,
+        posix-api ^>= 0.7.2,
+        unix ^>= 2.8.6.0,
         NFA-Solver
 
 test-suite NFA-Solver-test

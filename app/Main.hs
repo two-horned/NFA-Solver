@@ -1,5 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main where
 
+import System.Posix.Terminal (queryTerminal)
+import System.Posix.IO (stdOutput)
 import System.IO.Error (isEOFError)
 import Control.Exception (catch, throwIO)
 import Data.Char (isAsciiLower, isAsciiUpper, isDigit)
@@ -82,55 +86,56 @@ regexToNFA rg =
         (mp, n, Nothing) -> Just (eps, 0, mp, I.singleton n)
         _ -> Nothing
 
+type Logger = String -> IO ()
 
-getNFA :: IO (NFA Char)
-getNFA = do
-  putStrLn "Welcome! This is a simple demonstration that demonstrates"
-  putStrLn "my algorithm, which checks input sequences for an NFA, works"
-  putStrLn "well for validating strings with Regular Expressions."
-  putStrLn ""
-  putStrLn "First, we read a form of Regular Expression, convert them"
-  putStrLn "to an NFA and then check for various inputs. Please note,"
-  putStrLn "the syntax is limited to the ASCII alphabet & digits, parenthesis,"
-  putStrLn "and symbols '.', '?', '+', '*', '|', '[', ']', '^', '\\d'"
-  putStrLn "which represent the commonly known operations in Regular Expressions."
-  putStrLn "Please note, we do not have a fixed precedence rule for concatenation and alternation,"
-  putStrLn "so please use paranthesis to group subexpressions together."
-  putStrLn ""
-  putStrLn "My algorithm is not limited to Regular Expressions. One only needs to find a way to translate"
-  putStrLn "a problem to NFA input validation and define a parser for the appropriate NFA."
-  putStrLn ""
-  putStrLn ""
-  putStrLn ""
-  putStr "Provide Regex (input '!' to change later).\n\n"
-  regex <- getLine
-  case regexToNFA regex of
-    Nothing -> do
-      putStr "Invalid Regex.\n\n"
-      getNFA
-    Just nfa -> do
-      putStr "Valid Regex.\n\n"
-      return nfa
+printWelcome :: Logger -> IO ()
+printWelcome log =
+  log "Welcome! This is a simple demonstration that demonstrates\n\
+      \ my algorithm, which checks input sequences for an NFA, works\n\
+      \ well for validating strings with Regular Expressions.\n\n\
+      \ First, we read a form of Regular Expression, convert them\n\
+      \ to an NFA and then check for various inputs. Please note\n\
+      \ the syntax is limited to the ASCII alphabet & digits, parenthesis,\n\
+      \ and symbols '.', '?', '+', '*', '|', '[', ']', '^', '\\d'\n\
+      \ which represent the commonly known operations in Regular Expressions.\n\n\
+      \ Please note, we do not have a fixed precedence rule for concatenation and alternation,\n\
+      \ so please use paranthesis to group subexpressions together.\n\
+      \ My algorithm is not limited to Regular Expressions. One only needs to find a way to translate\n\
+      \ a problem to NFA input validation and define a parser for the appropriate NFA."
 
-checkInputs :: NFA Char -> IO ()
-checkInputs nfa = do
-  putStr "Feed input words line by line.\n\n"
-  word <- getLine
-  if word == "!"
-    then agenda
-    else do
-      if calcNFA nfa word
-        then putStr "Accepted.\n\n"
-        else putStr "Rejected.\n\n"
-      checkInputs nfa
+getNFA :: Logger -> IO (NFA Char)
+getNFA log = go
+    where
+      go = do
+        log "Provide Regex (input '!' to change later)."
+        getLine >>= maybe handleB handleA . regexToNFA
+      handleA nfa = log "Valid Regex." >> return nfa
+      handleB     = log "Invalid Regex." >> go
+
+
+checkInputs :: Logger -> NFA Char -> IO ()
+checkInputs log nfa = go
+  where
+    logA = log "Accepted."; logB = log "Rejected."
+    ca = calcNFA nfa; ag = agendaSlim log
+    go = do
+      log "Feed input words line by line.\n\n"
+      getLine >>= \case; "!" -> ag; w | ca w -> logA; _ -> logB >> go
+
 
 sayBye :: IO ()
 sayBye = putStrLn "Bye."
 
+
+agendaSlim :: Logger -> IO ()
+agendaSlim log = getNFA log >>= checkInputs log
+
+
 agenda :: IO ()
 agenda = do
-  nfa <- getNFA
-  checkInputs nfa
+  isTTY <- queryTerminal stdOutput
+  let log = if isTTY then putStr else const $ return ()
+  printWelcome log >> agendaSlim log
 
 main :: IO ()
 main = agenda `catch` (\e -> if isEOFError e then sayBye else throwIO e)
