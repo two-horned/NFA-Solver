@@ -17,14 +17,21 @@ import Data.Time.Clock (getCurrentTime, diffUTCTime)
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
   let -- Limit the alphabet to ASCII Letters and Digits.
-      alph = digs ++ ['A' .. 'Z'] ++ ['a' .. 'z']
+      alph = digs ++ ['A' .. 'Z'] ++ ['a' .. 'z'] ++ specU ++ specN
+      alphU = ['A' .. 'Z']
+      alphL = ['a' .. 'z']
       digs = ['0' .. '9']
+      specU = ['+', '?', '*', '+', '|', '.', '\\', '(', ')', '[', ']', '!']
+      specN = [' ', ',', ':', ';', '@', '$', '#', '<', '>', '&', '^', '%' ]
+
+      specUS = C.fromList specU
+      specNS = C.fromList specN
       alphS = C.fromList alph
 
       -- The epsilon symbol is reserved to mark empty transitions.
       eps = 'ε'
 
-      isVal c = isAsciiLower c || isAsciiUpper c || isDigit c
+      isVal c = isAsciiLower c || isAsciiUpper c || isDigit c || C.member c specNS
 
       isPair a
         | isAsciiLower a = isAsciiLower
@@ -35,50 +42,51 @@ regexToNFA rg =
       gdert x z y = H.insertWith I.union (x, y) (I.singleton z)
       multicon = flip . foldr . ap gdert (+1)
       edert x y = gdert x y eps
-      report s xs n mp = (Just (s, xs), n, mp)
+      report = curry $ (,,) . Just
 
       expand acc = \case
         ']' : xs -> Just (acc, xs)
         a : '-' : b : xs
           | isPair a b -> expand ([a .. b] <> acc) xs
+        '\\' : c : xs | C.member c specUS -> expand (c : acc) xs
         c : xs | isVal c -> expand (c : acc) xs
         _ -> Nothing
 
-      parseE ip = case ip of
+      parseE p = \case
         '^' : ']' : xs -> report '^' xs
         ']' : xs -> report ']' xs
         '^' : xs -> case expand [] xs of
           Just (e, u) ->
             let e' = C.toList $ alphS C.\\ C.fromList e
-            in \n -> parseN u n (n + 1) . multicon n e'
+            in \n -> parseN p n (n + 1) u . multicon n e'
           _ -> report '^' xs
         xs -> case expand [] xs of
-          Just (e, u) -> \n -> parseN u n (n + 1) . multicon n e
+          Just (e, u) -> \n -> parseN p n (n + 1) u . multicon n e
           _ -> report '[' xs
 
-      parseN ip o n = case ip of
-        '?' : xs -> parseN xs o n . edert o n
-        '+' : xs -> parseN xs o n . edert n o
-        '*' : xs -> parseN xs o n . edert n o . edert o n
+      parseN p o n = \case
+        '?' : xs -> parseN p o n xs . edert o n
+        '+' : xs -> parseN p o n xs . edert n o
+        '*' : xs -> parseN p o n xs . edert n o . edert o n
         '|' : xs -> (\(t, n', mp'') -> (t, n', edert n n' mp''))
-            . parseS xs (n + 1)
-            . edert o (n + 1)
-        _ -> parseS ip n
+            . parseS p (n + 1) xs
+            . edert p (n + 1)
+        xs -> parseS p n xs
 
-      parseS ip n = case ip of
-        '[' : xs -> parseE xs n
-        '.' : xs -> parseN xs n (n + 1) . multicon n alph
-        '\\' : 'd' : xs -> parseN xs n (n + 1) . multicon n digs
-        ('(' : xs) -> \mp ->
-          let (t, n', mp') = parseS xs n mp
-           in case t of
-                Just (')', ys) -> parseN ys n n' mp'
-                _ -> report '(' xs n' mp'
-        c : xs
-          | isVal c -> parseN xs n (n + 1) . multicon n [c]
+      parseS o n = \case
+        '[' : xs -> parseE o xs n
+        '.' : xs -> parseN o n (n + 1) xs . multicon n alph
+        '\\' : 'd' : xs -> parseN o n (n + 1) xs . multicon n digs
+        '\\' : 'a' : xs -> parseN o n (n + 1) xs . multicon n alphL
+        '\\' : 'A' : xs -> parseN o n (n + 1) xs . multicon n alphU
+        '\\' : c : xs | C.member c specUS -> parseN o n (n + 1) xs . multicon n [c]
+        ('(' : xs) -> (\case
+                (Just (')', ys), n', mp') -> parseN o n n' ys mp'
+                (_, n', mp') -> report '(' xs n' mp') . parseS n n xs
+        c : xs | isVal c -> parseN o n (n + 1) xs . multicon n [c]
         c : xs -> report c xs n
-        _ -> \mp -> (,,) Nothing n mp
-   in case parseS rg 0 H.empty of
+        _ -> (,,) Nothing n
+   in case parseS 0 0 rg H.empty of
         (Nothing, n, mp) -> Just (eps, 0, mp, I.singleton n)
         _ -> Nothing
 
@@ -96,8 +104,7 @@ printWelcome lgr =
     \ the syntax is limited to the ASCII alphabet & digits, parenthesis,\n\
     \ and symbols '.', '?', '+', '*', '|', '[', ']', '^', '\\d'\n\
     \ which represent the commonly known operations in Regular Expressions.\n\n\
-    \ Please note, we do not have a fixed precedence rule for concatenation and alternation,\n\
-    \ so please use paranthesis to group subexpressions together.\n\
+    \ Please note, according to our precedence rules concatenation comes before alternation.\n\
     \ My algorithm is not limited to Regular Expressions. One only needs to find a way to translate\n\
     \ a problem to NFA input validation and define a parser for the appropriate NFA."
 
