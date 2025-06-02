@@ -3,7 +3,7 @@
 module Main where
 
 import Control.Exception (catch, throwIO)
-import Control.Monad (liftM2)
+import Control.Monad (liftM2, ap)
 import Data.Char (isAsciiLower, isAsciiUpper, isDigit)
 import qualified Data.CharSet as C
 import qualified Data.HashMap.Strict as H
@@ -16,8 +16,7 @@ import Data.Time.Clock (getCurrentTime, diffUTCTime)
 
 regexToNFA :: String -> Maybe (NFA Char)
 regexToNFA rg =
-  let gdert x y z = H.insertWith I.union (x, y) (I.singleton z)
-      -- Limit the alphabet to ASCII Letters and Digits.
+  let -- Limit the alphabet to ASCII Letters and Digits.
       alph = digs ++ ['A' .. 'Z'] ++ ['a' .. 'z']
       digs = ['0' .. '9']
       alphS = C.fromList alph
@@ -33,61 +32,54 @@ regexToNFA rg =
         | isDigit a = isDigit
         | otherwise = const False
 
-      multicon xs n =
-        let ii bp x = gdert n x (n + 1) bp
-         in flip (foldl' ii) xs
+      gdert x z y = H.insertWith I.union (x, y) (I.singleton z)
+      multicon = flip . foldr . ap gdert (+1)
+      edert x y = gdert x y eps
+      report s xs n mp = (Just (s, xs), n, mp)
 
-      report s xs n mp = (mp, n, Just (s, xs))
-
-      expand = \case
-        ']' : xs -> Just ([], xs)
+      expand acc = \case
+        ']' : xs -> Just (acc, xs)
         a : '-' : b : xs
-          | isPair a b -> expand xs >>= \(r, u) -> return ([a .. b] <> r, u)
-        c : xs
-          | isAsciiLower c || isAsciiUpper c || isDigit c ->
-              expand xs >>= \(r, u) -> return (c : r, u)
+          | isPair a b -> expand ([a .. b] <> acc) xs
+        c : xs | isVal c -> expand (c : acc) xs
         _ -> Nothing
 
       parseE ip = case ip of
         '^' : ']' : xs -> report '^' xs
         ']' : xs -> report ']' xs
-        '^' : xs -> \n mp ->
-          case expand xs of
-            Just (e, u) ->
-              let e' = C.toList $ alphS C.\\ C.fromList e
-               in (parseN u n (n + 1) . multicon e' n) mp
-            _ -> report '^' xs n mp
-        xs -> case expand xs of
-          Just (e, u) -> \n -> parseN u n (n + 1) . multicon e n
+        '^' : xs -> case expand [] xs of
+          Just (e, u) ->
+            let e' = C.toList $ alphS C.\\ C.fromList e
+            in \n -> parseN u n (n + 1) . multicon n e'
+          _ -> report '^' xs
+        xs -> case expand [] xs of
+          Just (e, u) -> \n -> parseN u n (n + 1) . multicon n e
           _ -> report '[' xs
-
-      edert x y = gdert x eps y
 
       parseN ip o n = case ip of
         '?' : xs -> parseN xs o n . edert o n
         '+' : xs -> parseN xs o n . edert n o
         '*' : xs -> parseN xs o n . edert n o . edert o n
-        '|' : xs ->
-          (\(mp'', n', t) -> ((edert n n' mp'', n', t)))
+        '|' : xs -> (\(t, n', mp'') -> (t, n', edert n n' mp''))
             . parseS xs (n + 1)
-            . gdert o eps (n + 1)
+            . edert o (n + 1)
         _ -> parseS ip n
 
       parseS ip n = case ip of
         '[' : xs -> parseE xs n
-        '.' : xs -> parseN xs n (n + 1) . multicon alph n
-        '\\' : 'd' : xs -> parseN xs n (n + 1) . multicon digs n
+        '.' : xs -> parseN xs n (n + 1) . multicon n alph
+        '\\' : 'd' : xs -> parseN xs n (n + 1) . multicon n digs
         ('(' : xs) -> \mp ->
-          let (mp', n', t) = parseS xs n mp
+          let (t, n', mp') = parseS xs n mp
            in case t of
                 Just (')', ys) -> parseN ys n n' mp'
                 _ -> report '(' xs n' mp'
         c : xs
-          | isVal c -> parseN xs n (n + 1) . multicon [c] n
+          | isVal c -> parseN xs n (n + 1) . multicon n [c]
         c : xs -> report c xs n
-        _ -> \mp -> (,,) mp n Nothing
+        _ -> \mp -> (,,) Nothing n mp
    in case parseS rg 0 H.empty of
-        (mp, n, Nothing) -> Just (eps, 0, mp, I.singleton n)
+        (Nothing, n, mp) -> Just (eps, 0, mp, I.singleton n)
         _ -> Nothing
 
 type Logger = Bool -> String -> IO ()
